@@ -1,46 +1,97 @@
-import miditok
+# import os
+from pathlib import Path
+from miditok import REMI
+from miditok.data_augmentation import augment_dataset
+import time
 
-def augment_midi(midi_path, output_dir, transpositions=[-2, -1, 1, 2], tempo_changes=[0.9, 1.1], dynamics_changes=[0.9, 1.1], mode_changes=['aeolian', 'dorian']):
-    """
-    Augment a MIDI file by transposing and changing tempo.
-    Saves augmented MIDI files to output_dir.
-    """
-    tokenizer = miditok.MusicTokenizer()
-    midi = miditok.MidiFile(midi_path)
-    tokens = tokenizer.midi_to_tokens(midi)
+# # A validation function to discard undesired MIDIs.
+# def midi_valid(midi) -> bool:
+#     # Only accept MIDIs with a 4-beat bar (4/* time signatures).
+#     if any(ts.numerator != 4 for ts in midi.time_signature_changes):
+#         return False
+#     return True
+
+def main():
+    # Define folder paths.
+    midi_folder_path = Path("./POP909_MIDIs").resolve()  # Original MIDI files.
     
-    # # don't use transpose cos ram said so
-    # for i, semitones in enumerate(transpositions):
-    #     augmented_tokens = miditok.data_augmentation.transpose(tokens, semitones)
-    #     augmented_midi = tokenizer.tokens_to_midi(augmented_tokens)
-    #     augmented_midi.save(f"{output_dir}/transposed_{i}_{semitones}.mid")
+    # Folders for augmented outputs.
+    augmented_pitch_path = Path("./augmented_pitch").resolve()      # Augmented for key changes (pitch shifts).
+    augmented_dynamics_path = Path("./augmented_dynamics").resolve()  # Augmented for dynamics (velocity changes).
+    augmented_note_duration_path = Path("./augmented_note_duration").resolve()        # Augmented for note duration changes. (i.e. staccato-ness and legato-ness)
+
+    # Folder where tokenized JSON files will be saved.
+    tokens_output_path = Path("./tokens").resolve()
+
+    # Create output folders.
+    for folder in [augmented_pitch_path, augmented_dynamics_path, augmented_note_duration_path, tokens_output_path]:
+        folder.mkdir(parents=True, exist_ok=True)
     
-    # Transpose the MIDI file
-    for i, tempo_factor in enumerate(tempo_changes):
-        augmented_tokens = miditok.data_augmentation.change_tempo(tokens, tempo_factor)
-        augmented_midi = tokenizer.tokens_to_midi(augmented_tokens)
-        augmented_midi.save(f"{output_dir}/tempo_changed_{i}_{tempo_factor}.mid")
+    # ## 1. Data Augmentation
+    # print("Starting pitch augmentation (key changes)...")
+    # augment_dataset(
+    #     data_path=midi_folder_path,
+    #     pitch_offsets=[-12, 12],    # Transpose down/up one octave.
+    #     velocity_offsets=[],        # No velocity change.
+    #     duration_offsets=[],        # No duration change.
+    #     out_path=augmented_pitch_path,
+    #     copy_original_in_new_location=False,
+    # )
+    # print(f"Pitch augmentation complete. Files saved in: {augmented_pitch_path}")
+    
+    # print("Starting dynamics augmentation (velocity changes)...")
+    # augment_dataset(
+    #     data_path=midi_folder_path,
+    #     pitch_offsets=[],           # No pitch change.
+    #     velocity_offsets=[-30, 25],   # Adjust velocities.
+    #     duration_offsets=[],        # No duration change.
+    #     out_path=augmented_dynamics_path,
+    #     copy_original_in_new_location=False,
+    # )
+    # print(f"Dynamics augmentation complete. Files saved in: {augmented_dynamics_path}")
+    
+    # print("Starting note duration augmentation (duration changes)...")
+    # augment_dataset(
+    #     data_path=midi_folder_path,
+    #     pitch_offsets=[],           # No pitch change.
+    #     velocity_offsets=[],        # No velocity change.
+    #     duration_offsets=[-0.5, 1], # Alter note durations. (i.e. staccato-ness and legato-ness)
+    #     out_path=augmented_note_duration_path,
+    #     copy_original_in_new_location=False,
+    # )
+    # print(f"Note Duration augmentation complete. Files saved in: {augmented_note_duration_path}")
 
-    # Transpose the Dynamics 
-    for i, dynamics_factor in enumerate(dynamics_changes):
-        augmented_tokens = miditok.data_augmentation.change_dynamics(tokens, dynamics_factor)
-        augmented_midi = tokenizer.tokens_to_midi(augmented_tokens)
-        augmented_midi.save(f"{output_dir}/dynamics_changed_{i}_{dynamics_factor}.mid")
 
-    # Change the mode (e.g. aeolian, dorian)
-    for i, mode in enumerate(mode_changes):
-        augmented_tokens = miditok.data_augmentation.change_mode(tokens, mode)
-        augmented_midi = tokenizer.tokens_to_midi(augmented_tokens)
-        augmented_midi.save(f"{output_dir}/mode_changed_{i}_{mode}.mid")
 
+    ## 2. Tokenization of one augmented dataset (as an example).
+    # Here we tokenize the pitch-augmented dataset.
+    tokenizer = REMI()
+    
+    print("Starting tokenization of the pitch-augmented dataset...")
+    tokenizer.tokenize_dataset(
+        augmented_pitch_path,      # Input dataset: the augmented pitch folder.
+        tokens_output_path,        # Output folder for tokenized JSON files.
+        # midi_valid                 # Validation function.
+    )
+    print(f"Pitch Augment Tokenization complete. Token files saved in: {tokens_output_path}")
+    
+    print("Starting tokenization of the note duration-augmented dataset...")
+    tokenizer.tokenize_dataset(
+        augmented_note_duration_path,      # Input dataset: the augmented tempo folder.
+        tokens_output_path,        # Output folder for tokenized JSON files.
+        # midi_valid                 # Validation function.
+    )
+    print(f"Note Duration Augment Tokenization complete. Token files saved in: {tokens_output_path}")
+    
+    print("Starting tokenization of the dynamics-augmented dataset...")
+    tokenizer.tokenize_dataset(
+        augmented_dynamics_path,      # Input dataset: the augmented dynamics folder.
+        tokens_output_path,        # Output folder for tokenized JSON files.
+        # midi_valid                 # Validation function.
+    )
+    print(f"Dynamics Tokenization complete. Token files saved in: {tokens_output_path}")
+    
+    print(f"🎉 Magnificent! The grand tokenization process has reached its glorious conclusion. All token files have been meticulously saved in: {tokens_output_path}")
 
 if __name__ == "__main__":
-    import os
-    midi_folder_path = "./POP909_MIDIs"
-    output_folder_path = "./augmented"
-    os.makedirs(output_folder_path, exist_ok=True)
-
-    for midi_file in os.listdir(midi_folder_path):
-        midi_path = os.path.join(midi_folder_path, midi_file)
-        augment_midi(midi_path, output_folder_path)
-        raise Exception("stop")
+    main()

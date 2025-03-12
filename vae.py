@@ -61,7 +61,14 @@ class BetaVAE(nn.Module):
     
     def loss_function(self, recon_x, x, mu, logvar):
         # Reconstruction loss: mean squared error over all time steps and features
-        recon_loss = F.mse_loss(recon_x, x, reduction='sum')
+        recon_loss = F.mse_loss(recon_x, x, reduction='mean')
         # KL divergence loss
         kld = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        return recon_loss + self.beta * kld, recon_loss, kld
+        loss = recon_loss + self.beta * kld
+        return loss, recon_loss, kld
+
+    def save_weights(self, path):
+        torch.save(self.state_dict(), path)
+    
+    def load_weights(self, path):
+        self.load_state_dict(torch.load(path))

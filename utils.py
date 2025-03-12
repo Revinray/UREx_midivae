@@ -22,5 +22,12 @@ def segment_pianoroll(piano_roll, segment_duration=5, fs=100):
         segments.append(piano_roll[:, start:end])
     return segments
 
-
+if __name__ == "__main__":
+    # Example usage
+    midi_path = "POP909_MIDIs/001.mid"
+    piano_roll = midi_to_pianoroll(midi_path)
+    segments = segment_pianoroll(piano_roll)
+    print(f"Number of segments: {len(segments)}")
+    print(f"Shape of first segment: {segments[0].shape}")
+    print(segments[0][56])
 
