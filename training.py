@@ -12,10 +12,13 @@ from pathlib import Path
 from miditok.pytorch_data import DatasetMIDI, DataCollator
 from torch.nn.utils.rnn import pad_sequence
 
+import miditoolkit
+from miditoolkit import MidiFile
+
 import torch.nn as nn
 
 def midi_data_loader(folder, shuffle=True):
-    tokenizer = REMI()  # using defaults parameters (constants.py)
+    tokenizer = REMI()  # using defaults parameters
     midi_paths = [path.resolve() for path in Path(folder).rglob("*.mid")][:10]
 
     dataset = DatasetMIDI(
@@ -50,7 +53,7 @@ model = BetaVAE(input_dim, hidden_dim, latent_dim, beta=beta)
 learning_rate = 1e-3
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-num_epochs = 10
+num_epochs = 2
 
 train_data_loader = midi_data_loader("dataset_train", shuffle=True)
 test_data_loader = midi_data_loader("dataset_test", shuffle=False)
@@ -107,17 +110,153 @@ with torch.no_grad():
 # Generate a random latent vector z and decode it to a sequence of length seq_len
 model.eval()
 with torch.no_grad():
+    ## generate a random latent vector z
     seq_len = 256
     z = torch.randn((1, latent_dim)).to(device)
     decoded = model.decode(z, seq_len)  # shape: (1, seq_len, input_dim)
 
     # Convert probabilities to token IDs
     predicted_tokens = torch.argmax(decoded, dim=-1)  # shape: (1, seq_len)
-    generated_tokens = predicted_tokens.squeeze().tolist()
-    print(generated_tokens)
+    generated_tokens = predicted_tokens
 
+    # print shape of generated_tokens
+    print("Shape of generated_tokens:", generated_tokens.shape)
+
+    ## save to MIDI file
     tokenizer = REMI()
-    midi_obj = tokenizer.tokens_to_midi(generated_tokens)
+    score_object = tokenizer.decode(generated_tokens)
+    print(score_object)
+    
+    midi_file = MidiFile()
+    midi_file.ticks_per_beat = score_object.tpq
 
-    # save the generated MIDI file
-    midi_obj.write("generated.mid")
+    # Add tracks and events from the Score object to the MidiFile object
+    for track in score_object.tracks:
+        print(track.program)
+        midi_track = miditoolkit.midi.containers.Instrument(program=track.program, is_drum=track.is_drum, name=track.name)
+        for note in track.notes:
+            midi_track.notes.append(miditoolkit.midi.containers.Note(
+                start=note.start,
+                end=note.end,
+                pitch=note.pitch,
+                velocity=note.velocity
+            ))
+        midi_file.instruments.append(midi_track)
+
+    # Save the MidiFile object to a file
+    midi_file.dump(Path("decoded_midi.mid"))
+
+# Example function to generate from an existing tokenized MIDI file
+# TODO: to fix token conversion to MIDI
+def generate_from_token_file(file_path):
+    # Create a small dataset/loader from the single file
+    # tokenizer = REMI()
+    single_dataset = DatasetMIDI(
+        files_paths=[Path(file_path)],
+        tokenizer=tokenizer,
+        max_seq_len=1024,
+        bos_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer["BOS_None"],
+    )
+    collator = DataCollator(tokenizer.pad_token_id)
+    single_loader = DataLoader(single_dataset, batch_size=1, shuffle=False, collate_fn=collator)
+
+    model.eval()
+    with torch.no_grad():
+        batch = next(iter(single_loader))
+        tokens = batch["input_ids"].to(device)  # shape: (1, seq_len)
+        
+        # Embed tokens
+        embedded = embedding_layer(tokens.long())  # shape: (1, seq_len, input_dim)
+        
+        # Encode to latent
+        mu, logvar = model.encode(embedded.float())
+        z = model.reparameterize(mu, logvar)
+        
+        # Decode back to feature vectors
+        decoded = model.decode(z, seq_len=256)  # pick a sequence length
+        predicted_tokens = torch.argmax(decoded, dim=-1)  # shape: (1, seq_len)
+        
+        # Convert integers to token strings
+        token_strings = tokenizer._ids_to_tokens(predicted_tokens)
+        # Convert token strings back to MIDI
+        generated_midi = tokenizer([token_strings])
+        # print(len(tokens))
+        generated_midi.dump_midi(Path("decoded.mid"))
+
+
+
+        # generated_midi = tokenizer(predicted_tokens)
+        # generated_midi.dump_midi(Path(f"decoded{Path(file_path).stem}.mid"))
+        
+        # # Convert tokens back to MIDI
+        # generated_tokens = predicted_tokens.squeeze().tolist()
+        # score_object = tokenizer.decode([generated_tokens])
+
+        # midi_file = MidiFile()
+        # midi_file.ticks_per_beat = score_object.tpq
+
+        # # Add tracks and events from the Score object to the MidiFile object
+        # for track in score_object.tracks:
+        #     print(track.program)
+        #     midi_track = miditoolkit.midi.containers.Instrument(program=track.program, is_drum=track.is_drum, name=track.name)
+        #     for note in track.notes:
+        #         midi_track.notes.append(miditoolkit.midi.containers.Note(
+        #             start=note.start,
+        #             end=note.end,
+        #             pitch=note.pitch,
+        #             velocity=note.velocity
+        #         ))
+        #     midi_file.instruments.append(midi_track)
+
+        # output_name = f"decoded_midi_{Path(file_path).stem}.mid"
+        # # Save the MidiFile object to a file
+        # midi_file.dump(Path(output_name))
+
+        # print(f"Wrote generated MIDI to {output_name}")
+
+print(tokenizer.vocab)
+print("Vocab size:", len(tokenizer.vocab))
+
+test_midi_file_path = "dataset_valid/001_t0_0.mid"
+generate_from_token_file(test_midi_file_path)
+
+# # Generate a random latent vector z and decode it to a sequence of length seq_len
+# model.eval()
+# with torch.no_grad():
+#     ## generate a random latent vector z
+#     seq_len = 256
+#     z = torch.randn((1, latent_dim)).to(device)
+#     decoded = model.decode(z, seq_len)  # shape: (1, seq_len, input_dim)
+
+#     # Convert probabilities to token IDs
+#     predicted_tokens = torch.argmax(decoded, dim=-1)  # shape: (1, seq_len)
+#     generated_tokens = predicted_tokens
+
+#     # print shape of generated_tokens
+#     print("Shape of generated_tokens:", generated_tokens.shape)
+
+#     ## save to MIDI file
+#     tokenizer = REMI()
+#     score_object = tokenizer.decode(generated_tokens)
+#     print(score_object)
+    
+#     midi_file = MidiFile()
+#     midi_file.ticks_per_beat = score_object.tpq
+
+#     # Add tracks and events from the Score object to the MidiFile object
+#     for track in score_object.tracks:
+#         print(track.program)
+#         midi_track = miditoolkit.midi.containers.Instrument(program=track.program, is_drum=track.is_drum, name=track.name)
+#         for note in track.notes:
+#             midi_track.notes.append(miditoolkit.midi.containers.Note(
+#                 start=note.start,
+#                 end=note.end,
+#                 pitch=note.pitch,
+#                 velocity=note.velocity
+#             ))
+#         midi_file.instruments.append(midi_track)
+
+#     # Save the MidiFile object to a file
+#     midi_file.dump(Path("decoded_midi.mid"))
+

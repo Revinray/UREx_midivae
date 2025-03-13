@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 
 def midi_generator():
     # Creates the tokenizer and list the file paths
-    tokenizer = REMI()  # using defaults parameters (constants.py)
+    tokenizer = REMI()  # using defaults parameters
     midi_paths = [path.resolve() for path in Path("POP909_MIDIs").rglob("*.mid")]
 
     # Builds the vocabulary with BPE
@@ -69,29 +69,33 @@ def midi_generator():
         )
 
 
-from torch import nn
-## Create a Dataset and collator for training
-def midi_data_loader():
-    tokenizer = REMI()  # using defaults parameters (constants.py)
-    midi_paths = [path.resolve() for path in Path("POP909_MIDIs").rglob("*.mid")]
+# from torch import nn
+# ## Create a Dataset and collator for training
+# def midi_data_loader():
+#     tokenizer = REMI()  # using defaults parameters (constants.py)
+#     midi_paths = [path.resolve() for path in Path("POP909_MIDIs").rglob("*.mid")]
 
-    dataset = DatasetMIDI(
-        files_paths=midi_paths,
-        tokenizer=tokenizer,
-        max_seq_len=1024,
-        bos_token_id=tokenizer.pad_token_id,
-        eos_token_id=tokenizer["BOS_None"],
-    )
-    collator = DataCollator(tokenizer.pad_token_id)
-    data_loader = DataLoader(dataset=dataset, collate_fn=collator)
+#     dataset = DatasetMIDI(
+#         files_paths=midi_paths,
+#         tokenizer=tokenizer,
+#         max_seq_len=1024,
+#         bos_token_id=tokenizer.pad_token_id,
+#         eos_token_id=tokenizer["BOS_None"],
+#     )
+#     collator = DataCollator(tokenizer.pad_token_id)
+#     data_loader = DataLoader(dataset=dataset, collate_fn=collator)
 
-    embedded_data = []
+#     embedded_data = []
 
-    count = 0
-    # Using the data loader in the training loop
-    for batch in data_loader:
-        # print("Train your model on this batch...")
-        pass
+#     count = 0
+#     # Using the data loader in the training loop
+#     for batch in data_loader:
+#         # print("Train your model on this batch...")
+#         pass
+
+
+
+
 
     #     # extract the input_ids
     #     input_ids = batch["input_ids"]
@@ -135,6 +139,7 @@ def midi_data_loader():
     # return embedded_data
     
 
-midi_data_loader()
-
-
+if __name__ == "__main__":
+    # midi_generator() # this converts the raw MIDI, augments them and splits them to test, train and valid sets
+    # midi_data_loader() # this loads the data for training (to be used in the training loop)
+    pass
