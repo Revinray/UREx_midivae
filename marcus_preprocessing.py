@@ -68,6 +68,25 @@ def midi_generator():
             duration_offsets=[-0.5, 0.5],
         )
 
+# replace all the '#' characters in the names of the generated MIDI files with '_sharp_' because Kaggle doesn't like '#' in file names :(
+def dehashtagifier():
+    '''
+    replace all the '#' characters in the names of the generated MIDI files with '_sharp_' because Kaggle doesn't like '#' in file names :(
+    NOTE: will get random PermissionError interrupting the process, just run it again and eventually all will be renamed
+    '''
+    for path in Path("dataset_train").rglob("*.mid"):
+        new_path = path.with_name(path.name.replace("#", "_sharp_"))
+        path.rename(new_path)
+    print("dehashtagification of train set complete")
+    for path in Path("dataset_valid").rglob("*.mid"):
+        new_path = path.with_name(path.name.replace("#", "_sharp_"))
+        path.rename(new_path)
+    print("dehashtagification of valid set complete")
+    for path in Path("dataset_test").rglob("*.mid"):
+        new_path = path.with_name(path.name.replace("#", "_sharp_"))
+        path.rename(new_path)
+    print("dehashtagification of test set complete")
+
 
 # from torch import nn
 # ## Create a Dataset and collator for training
@@ -142,4 +161,5 @@ def midi_generator():
 if __name__ == "__main__":
     # midi_generator() # this converts the raw MIDI, augments them and splits them to test, train and valid sets
     # midi_data_loader() # this loads the data for training (to be used in the training loop)
+    dehashtagifier() # run this to replace all '#' in generated MIDI file names with '_sharp_' because Kaggle doesn't like '#' in file names :(
     pass
