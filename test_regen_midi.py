@@ -16,4 +16,4 @@ token_strings = tokenizer._ids_to_tokens(tokens)
 # Convert token strings back to MIDI
 generated_midi = tokenizer([token_strings])
 # print(len(tokens))
-generated_midi.dump_midi(Path("./test_output", "decoded_ints.mid"))
+generated_midi.dump_midi(Path("decoded_ints.mid"))
