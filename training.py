@@ -108,7 +108,7 @@ with torch.no_grad():
 # Example function to generate from an existing tokenized MIDI file
 def generate_from_token_file(file_path):
     # Create a small dataset/loader from the single file
-    # tokenizer = REMI()
+    tokenizer = REMI()
     single_dataset = DatasetMIDI(
         files_paths=[Path(file_path)],
         tokenizer=tokenizer,
